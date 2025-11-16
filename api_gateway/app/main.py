@@ -27,6 +27,9 @@ def create_token(user: dict):
 def verify_token(token: Optional[str]):
     if not token:
         raise HTTPException(status_code=401, detail="Token requerido")
+    # Remover prefijo "Bearer " si existe
+    if token.startswith("Bearer "):
+        token = token[7:]
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
     except jwt.InvalidTokenError:
