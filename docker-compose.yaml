@@ -1,5 +1,19 @@
 version: '3.8'
 services:
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=pass
+    ports:
+      - "5672:5672"   
+      - "15672:15672" 
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   api_gateway:
     build: ./api_gateway
     ports:
@@ -12,6 +26,7 @@ services:
       - SHIPPING_URL=http://shipping_service:8005
       - JWT_SECRET=patrones-ut4
     depends_on:
+      - rabbitmq
       - product_service
       - customer_service
       - order_service
@@ -31,6 +46,8 @@ services:
       - "8003:8003"
     environment:
       - PAYMENT_URL=http://payment_service:8002
+      - RABBITMQ_URL=amqp://user:pass@rabbitmq:5672/
+      - ORDER_QUEUE=orders
     volumes:
       - customer_data:/app/data
     depends_on:
@@ -48,9 +65,12 @@ services:
     environment:
       - PRODUCT_URL=http://product_service:8001
       - CUSTOMER_URL=http://customer_service:8003
+      - RABBITMQ_URL=amqp://user:pass@rabbitmq:5672/
+      - ORDER_QUEUE=orders
     volumes:
       - order_data:/app/data
     depends_on:
+      - rabbitmq
       - product_service
       - customer_service
 
@@ -61,7 +81,18 @@ services:
     volumes:
       - shipping_data:/app/data
     depends_on:
+      - rabbitmq
       - order_service
+
+  order_worker:
+    build: ./order_worker
+    depends_on:
+      - rabbitmq
+      - shipping_service
+    environment:
+      - RABBITMQ_URL=amqp://user:pass@rabbitmq:5672/
+      - ORDER_QUEUE=orders
+      - SHIPPING_URL=http://shipping_service:8005
 
 volumes:
   product_data:
